@@ -4,3 +4,4 @@
 - Lambda
   - Runtime: Node.js 18.x
   - Trigger: EventBridge
+- MySQL

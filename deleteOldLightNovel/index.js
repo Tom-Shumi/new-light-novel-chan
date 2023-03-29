@@ -5,36 +5,36 @@ export const handler = async (event) => {
     
     // mysql connection
     const connection = await mysql.createConnection({
-        host: process.env["DB_HOST"],
-        user: process.env["DB_USER"],
-        password: process.env["DB_PASSWORD"],
-        database: process.env["DB_NAME"],
+        host: 'japanesecomics.cxje17zaejow.ap-northeast-1.rds.amazonaws.com',
+        user: 'admin',
+        password: 'Tomohide0714',
+        database: 'japanesecomics',
         multipleStatements: true
     });
     
-    const now = new Date();
-    let sbt = 0;
-    if (now.getDate() === 2) {
-        sbt = 2;
-    } else if(now.getDate() === 3) {
-        sbt = 3;
-    } else if (now.getDate() === 4) {
-        sbt = 4;
+    
+    // 販売開始した予約可能に登録されていたライトノベルを新刊テーブルに移動させる ----------------------------------------------------------------------------
+    
+    // 販売開始した予約可能テーブルに登録されているライトノベルを取得
+    const releasedNovel = await connection.query("SELECT * FROM reservableVolumeLightNovel WHERE releaseDate <= NOW() ORDER BY id");
+    
+    for (const novel of releasedNovel) {
+        
+        const releaseDate = novel.releaseDate.getFullYear() + "-" + (novel.releaseDate.getMonth() + 1) + "-" + novel.releaseDate.getDate();
+        
+        const deleteNewNobelSql = `DELETE FROM newVolumeLightNovel WHERE asin = '${novel.asin}'`
+        await connection.query(deleteNewNobelSql);
+        
+        const insertNovelSql = `INSERT INTO newVolumeLightNovel (asin, title, volumeNum, url, releaseDate, tweetCount) VALUES ('${novel.asin}', '${novel.title}', ${novel.volumeNum}, '${novel.url}', '${releaseDate}', 0)`;
+        await connection.query(insertNovelSql);
+        
+        const deleteNovelSql = `DELETE FROM reservableVolumeLightNovel WHERE id = ${novel.id}`
+        await connection.query(deleteNovelSql);
     }
     
-    if (now.getDate() === 2 || now.getDate() === 3 || now.getDate() === 4) {
-        const sbtDeleteSql = `DELETE FROM babyGoods WHERE sbt = ${now.getDate()}`
-        await connection.query(sbtDeleteSql);
-    }
-
-    const newBabyGoodsCount = await connection.query(`SELECT COUNT(*) 'count' FROM babyGoods WHERE sbt = 1`);
-    console.log(newBabyGoodsCount);
-    if (newBabyGoodsCount[0].count > 300) {
-        const deleteBabyGoodsBorder = await connection.query(`SELECT * FROM babyGoods WHERE sbt = 1 ORDER BY id ASC LIMIT 100, 1;`);
-        const deleteBorderId = deleteBabyGoodsBorder[0].id;
-        const deleteNewVolumeSql = `DELETE FROM babyGoods WHERE id < '${deleteBorderId}'`
-        await connection.query(deleteNewVolumeSql);
-    }
+    // 15日前に発売された 且つ 2回ツイートされたライトノベルの削除
+    await connection.query('DELETE FROM newVolumeLightNovel WHERE tweetCount = 2 and releaseDate < DATE_SUB(CURDATE(),INTERVAL 15 DAY)');
+    
     connection.end();
 
     return {

@@ -79,11 +79,11 @@ ${url}`;
 export const handler = async (event) => {
 
     // newVolumeLightNovel
-    const newVolumeList = await connection.query("SELECT * FROM newVolumeLightNovel WHERE tweetCount < 2 ORDER BY RAND() LIMIT 3");
+    const newVolumeList = await connection.query("SELECT * FROM newVolumeLightNovel WHERE tweetCount < 2 ORDER BY RAND() LIMIT 2");
     await execute(newVolumeList, "新刊が発売したよ！", "☆", "newVolumeLightNovel");
 
     // reservableVolumeLightNovel
-    const reservableVolumeList = await connection.query("SELECT * FROM reservableVolumeLightNovel WHERE tweetCount = 0 ORDER BY RAND() LIMIT 3");
+    const reservableVolumeList = await connection.query("SELECT * FROM reservableVolumeLightNovel WHERE tweetCount = 0 ORDER BY RAND() LIMIT 2");
     await execute(reservableVolumeList, "予約が開始してるよ！", "◇", "reservableVolumeLightNovel");
     
     connection.end();

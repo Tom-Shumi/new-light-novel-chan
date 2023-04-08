@@ -2,19 +2,10 @@
 import * as mysql from 'promise-mysql';
 import axios from 'axios';
 
-// mysql connection
-const connection = await mysql.createConnection({
-    host: process.env["DB_HOST"],
-    user: process.env["DB_USER"],
-    password: process.env["DB_PASSWORD"],
-    database: process.env["DB_NAME"],
-    multipleStatements: true
-});
-
 const grantType = "refresh_token";
 const data = {};
 
-async function refreshToken(clientId, country, authorization) {
+async function refreshToken(clientId, country, authorization, connection) {
     const twitterToken = await connection.query(`SELECT * FROM twitterToken WHERE country = "${country}" LIMIT 1`);
     const refreshToken = twitterToken[0].refreshToken;
     const clientIdHeader = {
@@ -37,9 +28,17 @@ async function refreshToken(clientId, country, authorization) {
 }
 
 export const handler = async (event) => {
+    // mysql connection
+    const connection = await mysql.createConnection({
+        host: process.env["DB_HOST"],
+        user: process.env["DB_USER"],
+        password: process.env["DB_PASSWORD"],
+        database: process.env["DB_NAME"],
+        multipleStatements: true
+    });
     
     // Light Novel
-    await refreshToken(process.env["LIGHT_NOVEL_CLIENT_ID"], "us", process.env["LIGHT_NOVEL_AUTHORIZATION"]);
+    await refreshToken(process.env["LIGHT_NOVEL_CLIENT_ID"], "us", process.env["LIGHT_NOVEL_AUTHORIZATION"], connection);
     
     connection.end();
 

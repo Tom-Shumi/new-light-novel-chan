@@ -2,30 +2,13 @@
 import * as mysql from 'promise-mysql';
 import axios from 'axios';
 
-// mysql connection
-const connection = await mysql.createConnection({
-    host: process.env["DB_HOST"],
-    user: process.env["DB_USER"],
-    password: process.env["DB_PASSWORD"],
-    database: process.env["DB_NAME"],
-    multipleStatements: true
-});
-
-// 英語版のマンガを紹介していた時の名残で country = 'us'になってます
-const twitterToken = await connection.query("SELECT * FROM twitterToken WHERE country = 'us'");
-const accessToken = twitterToken[0].accessToken;
-
-const header = {
-    'Authorization': `Bearer ${accessToken}`
-};
-
 function sleep(waitSec) {
     return new Promise(function (resolve) {
         setTimeout(function() { resolve() }, waitSec);
     });
 }
 
-async function tweet(data) {
+async function tweet(data, header) {
     try {
         await axios.post(`https://api.twitter.com/2/tweets`
             , data
@@ -49,7 +32,7 @@ function createDecoration(symbol, tweetCount) {
     return decoration;
 }
 
-async function execute(volumeList, headline, symbol, table) {
+async function execute(volumeList, headline, symbol, table, connection, header) {
     if (volumeList.length == 0) {
         return;
     }
@@ -70,7 +53,7 @@ ${title}
 ${url}`;
             
         const data = {"text": content};
-        await tweet(data)
+        await tweet(data, header)
         await connection.query(`UPDATE ${table} SET tweetCount = ${tweetCount + 1} WHERE id = ${id}`);
         await sleep(5000);
     }
@@ -78,13 +61,30 @@ ${url}`;
 
 export const handler = async (event) => {
 
+    // mysql connection
+    const connection = await mysql.createConnection({
+        host: process.env["DB_HOST"],
+        user: process.env["DB_USER"],
+        password: process.env["DB_PASSWORD"],
+        database: process.env["DB_NAME"],
+        multipleStatements: true
+    });
+
+    // 英語版のマンガを紹介していた時の名残で country = 'us'になってます
+    const twitterToken = await connection.query("SELECT * FROM twitterToken WHERE country = 'us'");
+    const accessToken = twitterToken[0].accessToken;
+
+    const header = {
+        'Authorization': `Bearer ${accessToken}`
+    };
+
     // newVolumeLightNovel
     const newVolumeList = await connection.query("SELECT * FROM newVolumeLightNovel WHERE tweetCount < 2 ORDER BY RAND() LIMIT 2");
-    await execute(newVolumeList, "新刊が発売したよ！", "☆", "newVolumeLightNovel");
+    await execute(newVolumeList, "新刊が発売したよ！", "☆", "newVolumeLightNovel", connection, header);
 
     // reservableVolumeLightNovel
     const reservableVolumeList = await connection.query("SELECT * FROM reservableVolumeLightNovel WHERE tweetCount = 0 ORDER BY RAND() LIMIT 2");
-    await execute(reservableVolumeList, "予約が開始してるよ！", "◇", "reservableVolumeLightNovel");
+    await execute(reservableVolumeList, "予約が開始してるよ！", "◇", "reservableVolumeLightNovel", connection, header);
     
     connection.end();
 
